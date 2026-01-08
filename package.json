@@ -18,6 +18,7 @@
   "homepage": "https://github.com/vamos-23/IdeaPilot-backend#readme",
   "description": "",
   "dependencies": {
+    "axios": "^1.13.2",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "firebase-admin": "^13.6.0"
