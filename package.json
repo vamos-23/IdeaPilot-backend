@@ -18,7 +18,9 @@
   "homepage": "https://github.com/vamos-23/IdeaPilot-backend#readme",
   "description": "",
   "dependencies": {
-    "express": "^5.2.1"
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "firebase-admin": "^13.6.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
