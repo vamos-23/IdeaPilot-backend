@@ -4,10 +4,11 @@ import admin from "../config/firebase";
 export default async function requireAuth(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
   try {
-    const authHeaders = req.headers.authorization;
+    const authHeaders : string | undefined = req.headers.authorization;
+    const pushNotifications_enabled : boolean  = req.body;
 
     if (!authHeaders || !authHeaders.startsWith("Bearer ")) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -18,8 +19,9 @@ export default async function requireAuth(
     const decodedToken = await admin.auth().verifyIdToken(token);
 
     req.user = {
-      id: decodedToken.uid,
+      uid: decodedToken.uid,
       email: decodedToken.email,
+      notificationsEnabled: pushNotifications_enabled,
     };
 
     next();

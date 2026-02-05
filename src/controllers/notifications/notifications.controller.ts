@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
-import savePushToken from "../../services/notifications/pushToken.service";
+import savePushToken from "../../services/pushToken/pushToken.service";
 
 export default async function registerPushToken(req: Request, res: Response) {
-  if (!req.user || !req.user.id) {
+  if (!req.user || !req.user.uid) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const userId = req.user.id;
+  const userId = req.user.uid;
   const { token, platform, provider, enabled } = req.body;
 
   if (!token || !platform || !provider) {
