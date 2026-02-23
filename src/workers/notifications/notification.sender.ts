@@ -23,7 +23,7 @@ export default function startNotificationSender() {
         notificationSnap.docs.map(async (notifDoc) => {
           try {
             await notifDoc.ref.update({
-              status: "processing",
+              status: "pending",
               processingAt: FieldValue.serverTimestamp(),
             });
 

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import admin from "../config/firebase";
+import { auth } from "../config/firebase";
 
 export default async function requireAuth(
   req: Request,
@@ -7,8 +7,7 @@ export default async function requireAuth(
   next: NextFunction,
 ) {
   try {
-    const authHeaders : string | undefined = req.headers.authorization;
-    const pushNotifications_enabled : boolean  = req.body;
+    const authHeaders: string | undefined = req.headers.authorization;
 
     if (!authHeaders || !authHeaders.startsWith("Bearer ")) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -16,12 +15,11 @@ export default async function requireAuth(
 
     const token = authHeaders.split(" ")[1];
 
-    const decodedToken = await admin.auth().verifyIdToken(token);
+    const decodedToken = await auth.verifyIdToken(token);
 
     req.user = {
       uid: decodedToken.uid,
       email: decodedToken.email,
-      notificationsEnabled: pushNotifications_enabled,
     };
 
     next();
