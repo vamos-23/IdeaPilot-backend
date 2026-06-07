@@ -1,10 +1,16 @@
 import express from "express";
 import cors from "cors";
-import routes from "./routes/index";
 import errorhandler from "./middlewares/errors.middleware";
+import { ChatService } from "./services/chats.service";
+import chatRouter from "./routes/chats.route";
 
 export default function createApp() {
   const app = express();
+
+  //chatservice initialization
+  ChatService.init().then(() =>
+    console.log("HuggingFace Transformer setup initialized."),
+  );
 
   //Global middleware
   app.use(cors());
@@ -16,7 +22,7 @@ export default function createApp() {
   });
 
   //API routes
-  app.use("/api", routes);
+  app.use("/api/chats", chatRouter);
 
   //Central Error handler
   app.use(errorhandler);
