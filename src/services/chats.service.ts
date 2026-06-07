@@ -33,6 +33,14 @@ export class ChatService {
       .orderBy(desc(chats.updatedAt));
   }
 
+  static async deleteChatForUser(chatId: string, uid: string) {
+    const deletedId = await db
+      .delete(chats)
+      .where(and(eq(chats.userId, uid), eq(chats.id, chatId)))
+      .returning({ deletedId: chats.id });
+    return deletedId;
+  }
+
   static async getMessagesForChat(
     chatId: string,
     limit: number,

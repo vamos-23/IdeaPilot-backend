@@ -112,3 +112,23 @@ export async function getMessages(req: Request, res: Response): Promise<void> {
     res.status(500).json({ error: "Failed to fetch chat messages" });
   }
 }
+
+export async function deleteChat(req: Request, res: Response) {
+  const { chatId } = req.params;
+  const uid = req.user.uid;
+  try {
+    const result = await ChatService.deleteChatForUser(chatId, uid);
+    if (result.length === 0) {
+      res
+        .status(404)
+        .json({ error: "Chat not found or unauthorized deletion attempted" });
+      return;
+    }
+    res
+      .status(200)
+      .json({ success: true, message: "Chat deleted successfully!" });
+  } catch (error) {
+    console.error("Chat deletion error:", error);
+    res.status(500).json({ success: false, error: "Failed to delete chat." });
+  }
+}
