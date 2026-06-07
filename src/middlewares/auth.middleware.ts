@@ -1,7 +1,17 @@
 import { Request, Response, NextFunction } from "express";
 import { auth } from "../config/firebase";
 
-export default async function requireAuth(
+declare global {
+  namespace Express {
+    interface Request {
+      user: {
+        uid: string;
+      };
+    }
+  }
+}
+
+export async function requireAuth(
   req: Request,
   res: Response,
   next: NextFunction,
@@ -19,11 +29,11 @@ export default async function requireAuth(
 
     req.user = {
       uid: decodedToken.uid,
-      email: decodedToken.email,
     };
 
     next();
   } catch (error) {
-    return res.status(401).json({ error: "Invalid token" });
+    console.error("Auth Error:", error);
+    res.status(403).json({ error: "Forbidden: Invalid token" });
   }
 }
