@@ -1,11 +1,11 @@
 import { pipeline, env, mean_pooling } from "@huggingface/transformers";
 import Groq from "groq-sdk";
 import { GoogleGenAI } from "@google/genai";
-import { db } from "../db";
-import { chats, messages } from "../db/schema";
-import { cosineDistance, desc, eq, and, gt } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { Stream } from "groq-sdk/core/streaming.js";
+import { cosineDistance,eq, desc } from "drizzle-orm";
+import { db } from "../db";
+import { chats, messages } from "../db/schema";
 
 env.cacheDir = process.env.TRANSFORMER_CACHE || "./.models-cache";
 
@@ -13,7 +13,7 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 let embedder: any = null;
 
-export class ChatService {
+export class ChatProcess {
   static async init() {
     embedder = await pipeline(
       "feature-extraction",
@@ -22,56 +22,11 @@ export class ChatService {
     );
   }
 
-  static async getChatsForUser(uid: string) {
-    return await db
-      .select({
-        id: chats.id,
-        title: chats.title,
-      })
-      .from(chats)
-      .where(eq(chats.userId, uid))
-      .orderBy(desc(chats.updatedAt));
-  }
-
-  static async deleteChatForUser(chatId: string, uid: string) {
-    const deletedId = await db
-      .delete(chats)
-      .where(and(eq(chats.userId, uid), eq(chats.id, chatId)))
-      .returning({ deletedId: chats.id });
-    return deletedId;
-  }
-
-  static async getMessagesForChat(
-    chatId: string,
-    limit: number,
-    cursor?: string,
-  ) {
-    const query = db
-      .select({
-        id: messages.id,
-        role: messages.role,
-        content: messages.content,
-        createdAt: messages.createdAt,
-      })
-      .from(messages)
-      .where(
-        and(
-          eq(messages.chatId, chatId),
-          cursor ? gt(messages.createdAt, new Date(cursor)) : undefined,
-        ),
-      )
-      .orderBy(messages.createdAt)
-      .limit(limit);
-
-    const results = await query;
-    return results;
-  }
-
   static async generateEmbeddings(text: string) {
     /* 
-      -> mean_pooling: Generates a single vector representing all individual vectors for all tokens across different dimensions. It ensures all separate vectors contribute to the final meaning for vector operations.
-      -> normalize: This ensures the vector is normalized by mapping it onto a unit sphere for blazing fast cosine similarity math operations and semantic searches across the DB. This prevents sentences / words with longer lengths having dominant absolute vector magnitudes to unfairly skew the similarity scores.
-      */
+        -> mean_pooling: Generates a single vector representing all individual vectors for all tokens across different dimensions. It ensures all separate vectors contribute to the final meaning for vector operations.
+        -> normalize: This ensures the vector is normalized by mapping it onto a unit sphere for blazing fast cosine similarity math operations and semantic searches across the DB. This prevents sentences / words with longer lengths having dominant absolute vector magnitudes to unfairly skew the similarity scores.
+    */
     const output = await embedder(text, { pooling: "mean", normalize: true });
     const rawData = output.data || output[0].data || output.toList()[0];
     return Array.from(rawData) as number[];

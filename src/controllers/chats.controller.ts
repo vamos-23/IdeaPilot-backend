@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
-import { ChatService } from "../services/chats.service";
+import { ChatService } from "../services/chats.chatService";
+import { ChatProcess } from "../services/chats.processing";
 
 export async function streamChat(req: Request, res: Response) {
   const { chatId } = req.params;
@@ -34,13 +35,13 @@ export async function streamChat(req: Request, res: Response) {
       res.write(":\n\n");
     }, 20000);
 
-    const userEmbedding = await ChatService.generateEmbeddings(prompt);
+    const userEmbedding = await ChatProcess.generateEmbeddings(prompt);
     const [semanticSearches, recentMessages] =
-      await ChatService.retrieveContext(chatId, userEmbedding);
+      await ChatProcess.retrieveContext(chatId, userEmbedding);
 
     //extract the context-aware embedding tokens and attach to AI generation request
     const systemInstruction = `You are an expert AI assistant. Keep the response a bit short yet explanatory. Context:\n${semanticSearches.map((m) => m.content).join("\n")}`;
-    const stream = await ChatService.aiResponseStream(
+    const stream = await ChatProcess.aiResponseStream(
       systemInstruction,
       recentMessages,
       prompt,
@@ -56,7 +57,7 @@ export async function streamChat(req: Request, res: Response) {
     if (connectionAliveInterval) {
       clearInterval(connectionAliveInterval);
     }
-    await ChatService.saveConversation(
+    await ChatProcess.saveConversation(
       chatId,
       messageId,
       uid,
@@ -83,6 +84,64 @@ export async function getChats(req: Request, res: Response): Promise<void> {
   } catch (error) {
     console.error("Failed to fetch chats:", error);
     res.status(500).json({ error: "Failed to fetch chats" });
+  }
+}
+
+export async function togglePin(req: Request, res: Response): Promise<void> {
+  const { chatId } = req.params;
+  const { isPinned } = req.body;
+  const uid = req.user.uid;
+
+  if (typeof isPinned !== "boolean") {
+    res
+      .status(400)
+      .json({ error: "Invalid payload: isPinned must be a boolean" });
+    return;
+  }
+
+  try {
+    const result = await ChatService.toggleChatPinStatus(chatId, uid, isPinned);
+    if (result.length === 0) {
+      res.status(404).json({
+        error: "Chat not found or unauthorized pin operation attempted",
+      });
+      return;
+    }
+    res.status(200).json(result[0]);
+  } catch (error) {
+    console.error("Chat pinning failure:", error);
+    res
+      .status(500)
+      .json({ error: `Failed to ${isPinned ? "pin" : "unpin"} chat` });
+  }
+}
+
+export async function rename(req: Request, res: Response): Promise<void> {
+  const { chatId } = req.params;
+  const { title } = req.body;
+  const uid = req.user.uid;
+
+  if(!title.trim()) {
+    res.status(400).json({ error: "Invalid payload: title cannot be empty" });
+    return;
+  }
+  if (typeof title !== "string") {
+    res.status(400).json({ error: "Invalid payload: title must be a string" });
+    return;
+  }
+
+  try {
+    const result = await ChatService.renameChat(chatId, uid, title);
+    if (result.length === 0) {
+      res.status(404).json({
+        error: "Chat not found or unauthorized rename operation attempted",
+      });
+      return;
+    }
+    res.status(200).json(result[0]);
+  } catch (error) {
+    console.error("Chat rename failure:", error);
+    res.status(500).json({ error: "Failed to rename chat" });
   }
 }
 
