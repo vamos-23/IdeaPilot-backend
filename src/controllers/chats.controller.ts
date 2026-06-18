@@ -4,13 +4,14 @@ import { ChatProcess } from "../services/chats.processing";
 
 export async function streamChat(req: Request, res: Response) {
   const { chatId } = req.params;
-  const { messageId, prompt } = req.query as {
-    messageId?: string;
-    prompt?: string;
+  const { userMessageId, assistantMessageId, prompt } = req.query as {
+    userMessageId: string;
+    assistantMessageId: string;
+    prompt: string;
   };
   const uid = req.user.uid;
 
-  if (!uid || !chatId || !messageId || !prompt) {
+  if (!uid || !chatId || !userMessageId || !assistantMessageId || !prompt) {
     res.status(400).json({ error: "Missing required parameters" });
     return;
   }
@@ -59,7 +60,8 @@ export async function streamChat(req: Request, res: Response) {
     }
     await ChatProcess.saveConversation(
       chatId,
-      messageId,
+      userMessageId,
+      assistantMessageId,
       uid,
       prompt,
       userEmbedding,
@@ -121,7 +123,7 @@ export async function rename(req: Request, res: Response): Promise<void> {
   const { title } = req.body;
   const uid = req.user.uid;
 
-  if(!title.trim()) {
+  if (!title.trim()) {
     res.status(400).json({ error: "Invalid payload: title cannot be empty" });
     return;
   }
@@ -147,7 +149,7 @@ export async function rename(req: Request, res: Response): Promise<void> {
 
 export async function getMessages(req: Request, res: Response): Promise<void> {
   const { chatId } = req.params;
-  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 15;
+  const limit = 15;
   const cursor = req.query.cursor as string | undefined;
 
   try {
@@ -156,11 +158,14 @@ export async function getMessages(req: Request, res: Response): Promise<void> {
       limit,
       cursor,
     );
-    let nextCursor = null;
+
     const messagesLength = messageList.length;
-    if (messagesLength === limit) {
-      nextCursor = messageList[messagesLength - 1].createdAt;
-    }
+    const hasNextPage = messagesLength > limit;
+    if (hasNextPage) messageList.pop();
+    const nextCursor = hasNextPage
+      ? messageList[messagesLength - 1].createdAt
+      : null;
+
     const sanitizedList = messageList.map((msg) => {
       const { createdAt, ...messageList } = msg;
       return messageList;

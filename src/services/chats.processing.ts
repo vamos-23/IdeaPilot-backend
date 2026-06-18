@@ -3,7 +3,7 @@ import Groq from "groq-sdk";
 import { GoogleGenAI } from "@google/genai";
 import { v4 as uuidv4 } from "uuid";
 import { Stream } from "groq-sdk/core/streaming.js";
-import { cosineDistance,eq, desc } from "drizzle-orm";
+import { cosineDistance, eq, desc } from "drizzle-orm";
 import { db } from "../db";
 import { chats, messages } from "../db/schema";
 
@@ -78,7 +78,8 @@ export class ChatProcess {
 
   static async saveConversation(
     chatId: string,
-    messageId: string,
+    userMessageId: string,
+    assistantMessageId: string,
     uid: string,
     userPrompt: string,
     userEmbedding: number[],
@@ -103,7 +104,7 @@ export class ChatProcess {
 
       await tx.insert(messages).values([
         {
-          id: messageId,
+          id: userMessageId,
           chatId,
           senderId: uid,
           role: "user",
@@ -111,7 +112,7 @@ export class ChatProcess {
           embedding: userEmbedding,
         },
         {
-          id: uuidv4(),
+          id: assistantMessageId,
           chatId,
           senderId: "ideapilot-ai",
           role: "model",
@@ -120,7 +121,7 @@ export class ChatProcess {
         },
       ]);
 
-      await this.generateChatTitle(chatId, userPrompt, aiResponse).catch(
+      this.generateChatTitle(chatId, userPrompt, aiResponse).catch(
         console.error,
       );
     });
@@ -143,7 +144,7 @@ export class ChatProcess {
 
     const response = await gemini.models.generateContent({
       model: "gemini-2.5-flash-lite",
-      contents: `Summarize this chat into a punchy 3-5 word title. Return ONLY text. User: ${userPrompt}\nAI: ${aiResponse}`,
+      contents: `Summarize this chat into a punchy 3-5 word title and generate a chat title. Return ONLY text. User: ${userPrompt}\nAI: ${aiResponse}`,
       config: { maxOutputTokens: 10, temperature: 0.3 },
     });
 
