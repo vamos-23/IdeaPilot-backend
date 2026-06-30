@@ -15,7 +15,7 @@ router.use(requireAuth);
 
 router.get("/", getChats);
 router.get("/:chatId/messages", getMessages);
-router.get("/:chatId/stream", streamChat);
+router.post("/:chatId/stream", streamChat);
 
 router.patch("/:chatId/pin", togglePin);
 router.patch("/:chatId/rename", rename);

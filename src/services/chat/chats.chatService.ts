@@ -1,6 +1,6 @@
-import { db } from "../db";
-import { chats, messages } from "../db/schema";
-import { desc, eq, and, gt } from "drizzle-orm";
+import { db } from "../../db";
+import { chats, messages } from "../../db/schema";
+import { desc, eq, and, lt } from "drizzle-orm";
 
 export class ChatService {
   static async getChatsForUser(uid: string) {
@@ -49,17 +49,16 @@ export class ChatService {
     cursor?: string,
   ) {
     const condition = [eq(messages.chatId, chatId)];
-    if (cursor) condition.push(gt(messages.createdAt, new Date(cursor)));
+    if (cursor) condition.push(lt(messages.id, cursor));
     const query = db
       .select({
         id: messages.id,
         role: messages.role,
         content: messages.content,
-        createdAt: messages.createdAt,
       })
       .from(messages)
       .where(and(...condition))
-      .orderBy(messages.createdAt)
+      .orderBy(desc(messages.id))
       .limit(limit);
 
     const results = await query;

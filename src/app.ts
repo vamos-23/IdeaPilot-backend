@@ -1,14 +1,14 @@
 import express from "express";
 import cors from "cors";
 import errorhandler from "./middlewares/errors.middleware";
-import { ChatProcess } from "./services/chats.processing";
+import { EmbeddingService } from "./services/ai/embedding.service";
 import chatRouter from "./routes/chats.route";
 
 export default function createApp() {
   const app = express();
 
-  //chatservice initialization
-  ChatProcess.init().then(() =>
+  //Chat service model embedder initialization
+  EmbeddingService.init().then(() =>
     console.log("HuggingFace Transformer setup initialized."),
   );
 

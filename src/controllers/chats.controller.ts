@@ -1,81 +1,75 @@
 import { Request, Response } from "express";
-import { ChatService } from "../services/chats.chatService";
-import { ChatProcess } from "../services/chats.processing";
+import { EmbeddingService } from "../services/ai/embedding.service";
+import { SemanticSearchService } from "../services/retrieval/semanticSearch.service";
+import { ChatContextService } from "../services/context/chatContext.service";
+import { ChatService } from "../services/chat/chats.chatService";
+import { ProjectStateService } from "../services/project/projectState.service";
+import { RuntimeContextService } from "../services/context/runtimeContext.service";
+import { AIService } from "../services/ai/ai.service";
+import { ProjectResponseService } from "../services/project/projectResponse.service";
+import { ConversationService } from "../services/chat/conversation.service";
+import generateSystemPrompt from "../services/generateSystemPrompt";
 
 export async function streamChat(req: Request, res: Response) {
   const { chatId } = req.params;
-  const { userMessageId, assistantMessageId, prompt } = req.query as {
-    userMessageId: string;
-    assistantMessageId: string;
-    prompt: string;
-  };
+  const { userMessageId, assistantMessageId, prompt, techStack } = req.body;
   const uid = req.user.uid;
 
-  if (!uid || !chatId || !userMessageId || !assistantMessageId || !prompt) {
+  if (!uid || !chatId || !prompt || !userMessageId || !assistantMessageId) {
     res.status(400).json({ error: "Missing required parameters" });
     return;
   }
-  let connectionAliveInterval: NodeJS.Timeout | null = null;
 
-  req.on("close", () => {
-    if (connectionAliveInterval) clearInterval(connectionAliveInterval);
-    res.end();
-  });
-  // SSE connection
   try {
-    res.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-store, must-revalidate",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-      Pragma: "no-cache",
-      Expires: 0,
-    });
+    const userEmbeddings = await EmbeddingService.generateEmbeddings(prompt);
+    const { semanticContext, recentMessages } =
+      await SemanticSearchService.retrieveContext(chatId, userEmbeddings);
 
-    connectionAliveInterval = setInterval(() => {
-      res.write(":\n\n");
-    }, 20000);
+    const chatContext = await ChatContextService.getContext(chatId);
 
-    const userEmbedding = await ChatProcess.generateEmbeddings(prompt);
-    const [semanticSearches, recentMessages] =
-      await ChatProcess.retrieveContext(chatId, userEmbedding);
+    const currentProject = await ProjectStateService.getCurrentProject(
+      chatContext.latestPreviewMessageId,
+    );
+    const runtimeContext =
+      RuntimeContextService.buildRuntimeContext(currentProject);
 
-    //extract the context-aware embedding tokens and attach to AI generation request
-    const systemInstruction = `You are an expert AI assistant. Keep the response a bit short yet explanatory. Context:\n${semanticSearches.map((m) => m.content).join("\n")}`;
-    const stream = await ChatProcess.aiResponseStream(
-      systemInstruction,
+    const preferredTechStack = Array.isArray(techStack) ? techStack : [];
+    const systemPrompt = generateSystemPrompt(preferredTechStack);
+
+    const aiResponse = await AIService.generateAIResponse(
+      systemPrompt,
+      runtimeContext,
+      semanticContext.map((msg) => msg.content).join("\n"),
       recentMessages,
       prompt,
     );
-
-    let fullAiResponse = " ";
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || "";
-      if (!content) continue;
-      fullAiResponse += content;
-      res.write(`data: ${JSON.stringify({ text: content })}\n\n`);
-    }
-    if (connectionAliveInterval) {
-      clearInterval(connectionAliveInterval);
-    }
-    await ChatProcess.saveConversation(
+    const processedResponse = await ProjectResponseService.processResponse(
       chatId,
+      assistantMessageId,
+      chatContext.projectId,
+      aiResponse,
+    );
+
+    await ConversationService.saveConversation(
+      chatId,
+      uid,
       userMessageId,
       assistantMessageId,
-      uid,
       prompt,
-      userEmbedding,
-      fullAiResponse,
+      userEmbeddings,
+      processedResponse.finalContent,
     );
-    res.write(`data: [DONE]\n\n`);
-    res.end();
+
+    if (processedResponse.finalContent.includes("This goes out my scope.")) {
+      res.status(200).json({
+        text: "This goes out my scope. Please try a query related to project ideas or tech stacks after sometime.",
+      });
+      return;
+    }
+    res.status(200).json({ text: processedResponse.finalContent });
   } catch (error) {
-    console.error("Streaming error:", error);
-    if (connectionAliveInterval) clearInterval(connectionAliveInterval);
-    res.write(
-      `data: ${JSON.stringify({ error: "Failed to stream response" })}\n\n`,
-    );
-    res.end();
+    console.error("Response Generation / DB save error:", error);
+    res.status(500).json({ error: "Failed to process or save chat message" });
   }
 }
 
@@ -153,24 +147,23 @@ export async function getMessages(req: Request, res: Response): Promise<void> {
   const cursor = req.query.cursor as string | undefined;
 
   try {
-    const messageList = await ChatService.getMessagesForChat(
-      chatId,
-      limit,
-      cursor,
-    );
+    const [messageList, chatContext] = await Promise.all([
+      ChatService.getMessagesForChat(chatId, limit + 1, cursor),
+      ChatContextService.getContext(chatId),
+    ]);
 
     const messagesLength = messageList.length;
     const hasNextPage = messagesLength > limit;
     if (hasNextPage) messageList.pop();
     const nextCursor = hasNextPage
-      ? messageList[messagesLength - 1].createdAt
+      ? messageList[messageList.length - 1].id
       : null;
 
-    const sanitizedList = messageList.map((msg) => {
-      const { createdAt, ...messageList } = msg;
-      return messageList;
+    res.json({
+      messages: messageList,
+      nextCursor,
+      latestPreviewId: chatContext.latestPreviewMessageId,
     });
-    res.json({ messages: sanitizedList, nextCursor });
   } catch (error) {
     console.error(`Failed to fetch chat messages for chat-${chatId}:`, error);
     res.status(500).json({ error: "Failed to fetch chat messages" });
@@ -188,6 +181,7 @@ export async function deleteChat(req: Request, res: Response) {
         .json({ error: "Chat not found or unauthorized deletion attempted" });
       return;
     }
+    await ChatContextService.invalidateContext(chatId);
     res
       .status(200)
       .json({ success: true, message: "Chat deleted successfully!" });

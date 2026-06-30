@@ -34,7 +34,9 @@
     "express": "^5.2.1",
     "firebase-admin": "^13.6.0",
     "groq-sdk": "^1.2.1",
-    "postgres": "^3.4.9"
+    "ioredis": "^5.11.1",
+    "postgres": "^3.4.9",
+    "ulidx": "^2.4.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
