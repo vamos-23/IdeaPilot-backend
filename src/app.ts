@@ -3,6 +3,7 @@ import cors from "cors";
 import errorhandler from "./middlewares/errors.middleware";
 import { EmbeddingService } from "./services/ai/embedding.service";
 import chatRouter from "./routes/chats.route";
+import resourcesRouter from "./routes/resources.routes";
 
 export default function createApp() {
   const app = express();
@@ -23,6 +24,7 @@ export default function createApp() {
 
   //API routes
   app.use("/api/chats", chatRouter);
+  app.use("/api/resources", resourcesRouter);
 
   //Central Error handler
   app.use(errorhandler);

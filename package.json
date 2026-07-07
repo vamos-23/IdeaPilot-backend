@@ -8,7 +8,6 @@
     "build": "tsc",
     "dev": "dotenv -e .env.development -- tsx watch src/server.ts",
     "start": "node dist/server.js",
-    "worker": "node dist/worker.js",
     "db:push": "dotenv -e .env.development -- drizzle-kit push --config=drizzle.config.ts",
     "db:push:prod": "dotenv -e .env.production -- drizzle-kit push --config=drizzle.config.ts"
   },
