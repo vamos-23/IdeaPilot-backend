@@ -1,9 +1,6 @@
 # IdeaPilot Backend (AI Service)
 
-Backend service for **IdeaPilot**, responsible for **AI-powered project idea suggestions and validation**.
-
-This service is intentionally **AI-only**.  
-User authentication and data storage are handled on the client using **Firebase**.
+Backend service for **IdeaPilot**, responsible for **AI-powered project idea suggestions and validation, push-notification implementation and account deletion management**.
 
 ---
 
@@ -15,8 +12,7 @@ The backend exists to:
 - Perform prompt engineering
 - Apply rate limiting
 - Normalize AI responses
-- Enforce authentication for AI usage
-
-It does **not** manage users or store ideas.
-
+- Enforce authentication for AI usage 
+- Allow account deletions
+- Push Notification implementation
 ---
